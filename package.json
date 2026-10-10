@@ -1,0 +1,27 @@
+{
+  "name": "mcp-list-paginator",
+  "version": "1.0.0",
+  "description": "Create stable, bounded, opaque-cursor pages for MCP list handlers.",
+  "keywords": ["mcp", "model-context-protocol", "pagination", "cursor", "tools", "resources", "prompts"],
+  "license": "MIT",
+  "author": "Huzaifa Asif",
+  "repository": {"type": "git", "url": "git+https://github.com/Huzaifa-Asif/mcp-list-paginator.git"},
+  "bugs": {"url": "https://github.com/Huzaifa-Asif/mcp-list-paginator/issues"},
+  "homepage": "https://github.com/Huzaifa-Asif/mcp-list-paginator#readme",
+  "type": "module",
+  "main": "./src/index.cjs",
+  "module": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {".": {"types": "./src/index.d.ts", "import": "./src/index.js", "require": "./src/index.cjs"}},
+  "files": ["src", "examples", "README.md", "LICENSE", "NOTICE.md", "CHANGELOG.md", "SECURITY.md"],
+  "engines": {"node": ">=18"},
+  "sideEffects": false,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint": "node scripts/lint.mjs",
+    "test": "node --test",
+    "test:coverage": "node --experimental-test-coverage --test",
+    "check": "npm run build && npm run lint && npm run test:coverage && node examples/mcp-handler.mjs && npm pack --dry-run"
+  },
+  "publishConfig": {"access": "public"}
+}

@@ -1,0 +1,25 @@
+name: Feature request
+description: Propose a focused MCP list-pagination improvement
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the concrete list-pagination problem and relevant MCP behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include native SDK features or established packages you evaluated.
+    validations:
+      required: true
