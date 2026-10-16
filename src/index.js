@@ -103,10 +103,13 @@ export function createListPaginator(options = {}) {
       const items = Array.from(request.items);
       if (items.length > maxItems) throw new RangeError(`request.items cannot contain more than ${maxItems} items`);
       if (items.length <= pageSize) return { items };
+      // Internal identity must never collide with caller-generated cursor strings.
+      const snapshot = { id: Symbol(), items, expiresAt: at + ttlMs, tokens: new Set() };
+      // Allocate successfully before retaining state or evicting an existing walk.
+      const result = resultFor(snapshot, 0);
       while (snapshots.size >= maxSnapshots) removeSnapshot(snapshots.keys().next().value);
-      const snapshot = { id: uniqueToken(), items, expiresAt: at + ttlMs, tokens: new Set() };
       snapshots.set(snapshot.id, snapshot);
-      return resultFor(snapshot, 0);
+      return result;
     }
 
     const record = cursors.get(request.cursor);

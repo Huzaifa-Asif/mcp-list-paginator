@@ -123,3 +123,93 @@ test('CommonJS and ESM expose matching usable APIs', () => {
   const paginator = cjs.createListPaginator({ pageSize: 1 });
   assert.deepEqual(paginator.page({ items: ['only'] }), { items: ['only'] });
 });
+
+for (const [format, api] of [['ESM', { createListPaginator, PaginationCursorError }], ['CommonJS', require('../src/index.cjs')]]) {
+  const token = (letter) => letter.repeat(24);
+
+  test(`${format}: repeated token sequence cannot replace a live snapshot`, () => {
+    const tokens = ['A', 'B', 'A', 'C'].map(token);
+    const paginator = api.createListPaginator({ pageSize: 1, createToken: () => tokens.shift() });
+    const old = paginator.page({ items: ['old-1', 'old-2', 'old-3'] });
+    const current = paginator.page({ items: ['new-1', 'new-2'] });
+    const second = paginator.page({ cursor: old.nextCursor });
+    assert.deepEqual(second.items, ['old-2']);
+    assert.deepEqual(paginator.page({ cursor: current.nextCursor }), { items: ['new-2'] });
+    assert.deepEqual(paginator.page({ cursor: second.nextCursor }), { items: ['old-3'] });
+    assert.deepEqual(paginator.page({ cursor: old.nextCursor }), second);
+    assert.equal(tokens.length, 0);
+    assert.equal(paginator.stats().snapshots, 2);
+    assert.equal(paginator.stats().cursors, 3);
+  });
+
+  test(`${format}: ten duplicate attempts fail without evicting or overwriting`, () => {
+    let attempts = 0;
+    let value = token('A');
+    const paginator = api.createListPaginator({ pageSize: 1, maxSnapshots: 1, createToken: () => { attempts += 1; return value; } });
+    const old = paginator.page({ items: ['old-1', 'old-2'] });
+    const before = paginator.stats();
+    assert.throws(() => paginator.page({ items: ['new-1', 'new-2'] }), /duplicate/);
+    assert.equal(attempts, 11);
+    assert.deepEqual(paginator.stats(), before);
+    assert.deepEqual(paginator.page({ cursor: old.nextCursor }), { items: ['old-2'] });
+    value = token('B');
+    const current = paginator.page({ items: ['new-1', 'new-2'] });
+    assert.throws(() => paginator.page({ cursor: old.nextCursor }), api.PaginationCursorError);
+    assert.deepEqual(paginator.page({ cursor: current.nextCursor }), { items: ['new-2'] });
+  });
+
+  for (const [label, failure] of [
+    ['short token', () => 'short'],
+    ['non-string token', () => null],
+    ['throwing hook', () => { throw new Error('hook failed'); }],
+  ]) {
+    test(`${format}: ${label} retains no orphan and preserves an existing walk`, () => {
+      let generate = failure;
+      const paginator = api.createListPaginator({ pageSize: 1, maxSnapshots: 1, createToken: () => generate() });
+      assert.throws(() => paginator.page({ items: [1, 2] }));
+      assert.equal(paginator.stats().snapshots, 0);
+      assert.equal(paginator.stats().cursors, 0);
+      generate = () => token('A');
+      const old = paginator.page({ items: ['old-1', 'old-2'] });
+      const before = paginator.stats();
+      generate = failure;
+      assert.throws(() => paginator.page({ items: ['new-1', 'new-2'] }));
+      assert.deepEqual(paginator.stats(), before);
+      assert.deepEqual(paginator.page({ cursor: old.nextCursor }), { items: ['old-2'] });
+    });
+  }
+
+  test(`${format}: failed continuation can retry and replay after collision exhaustion`, () => {
+    let value = token('A');
+    const paginator = api.createListPaginator({ pageSize: 1, createToken: () => value });
+    const first = paginator.page({ items: [1, 2, 3] });
+    const before = paginator.stats();
+    assert.throws(() => paginator.page({ cursor: first.nextCursor }), /duplicate/);
+    assert.deepEqual(paginator.stats(), before);
+    value = 'short';
+    assert.throws(() => paginator.page({ cursor: first.nextCursor }), /at least 16/);
+    assert.deepEqual(paginator.stats(), before);
+    value = token('B');
+    const second = paginator.page({ cursor: first.nextCursor });
+    assert.deepEqual(second.items, [2]);
+    assert.deepEqual(paginator.page({ cursor: first.nextCursor }), second);
+    assert.deepEqual(paginator.page({ cursor: second.nextCursor }), { items: [3] });
+  });
+
+  for (const action of ['expire', 'evict', 'clear']) {
+    test(`${format}: ${action} invalidates every cursor of the removed snapshot`, () => {
+      let now = 0;
+      const paginator = api.createListPaginator({ pageSize: 1, maxSnapshots: 1, ttlMs: 5, now: () => now, ...deterministicOptions() });
+      const first = paginator.page({ items: [1, 2, 3] });
+      const second = paginator.page({ cursor: first.nextCursor });
+      if (action === 'expire') now = 5;
+      if (action === 'clear') assert.equal(paginator.clear(), 1);
+      if (action === 'evict') paginator.page({ items: [4, 5] });
+      for (const cursor of [first.nextCursor, second.nextCursor]) {
+        assert.throws(() => paginator.page({ cursor }), api.PaginationCursorError);
+      }
+      assert.equal(paginator.stats().cursors, action === 'evict' ? 1 : 0);
+      assert.equal(paginator.stats().snapshots, action === 'evict' ? 1 : 0);
+    });
+  }
+}
