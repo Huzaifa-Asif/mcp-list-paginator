@@ -1,6 +1,6 @@
 {
   "name": "mcp-list-paginator",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Create stable, bounded, opaque-cursor pages for MCP list handlers.",
   "keywords": ["mcp", "model-context-protocol", "pagination", "cursor", "tools", "resources", "prompts"],
   "license": "MIT",
@@ -23,5 +23,6 @@
     "test:coverage": "node --experimental-test-coverage --test",
     "check": "npm run build && npm run lint && npm run test:coverage && node examples/mcp-handler.mjs && npm pack --dry-run"
   },
-  "publishConfig": {"access": "public"}
+  "publishConfig": {"access": "public"},
+  "devDependencies": {"@modelcontextprotocol/sdk": "1.32.1"}
 }
