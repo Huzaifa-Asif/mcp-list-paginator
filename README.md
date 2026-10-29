@@ -20,8 +20,9 @@ import { createListPaginator } from 'mcp-list-paginator';
 const paginator = createListPaginator({ pageSize: 100 });
 
 function listTools(request) {
-  const page = request.params?.cursor
-    ? paginator.page({ cursor: request.params.cursor })
+  const params = request.params ?? {};
+  const page = Object.hasOwn(params, 'cursor')
+    ? paginator.page({ cursor: params.cursor })
     : paginator.page({ items: getVisibleTools() });
 
   return {
@@ -30,6 +31,55 @@ function listTools(request) {
   };
 }
 ```
+
+Check whether the `cursor` property was supplied rather than whether its value
+is truthy. An explicitly supplied empty string is an invalid cursor; it must not
+silently start a new snapshot.
+
+### Low-level TypeScript SDK handlers
+
+The official SDK's low-level `Server` supports custom handlers for all four
+standard list operations. Register one paginator per operation and
+authorization scope, filter visible entries before the first page, and map
+invalid cursors to `InvalidParams`:
+
+```js
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { PaginationCursorError, createListPaginator } from 'mcp-list-paginator';
+
+const toolsByScope = new Map();
+const paginatorsByScope = new Map();
+
+server.setRequestHandler(ListToolsRequestSchema, (request, extra) => {
+  // Application-defined key for one stable visibility set. Include every
+  // tenant, principal, resource, and effective-permission input used by
+  // getVisibleTools(); do not key by a bearer token.
+  const scope = getAuthorizationScopeKey(extra);
+  const params = request.params ?? {};
+  const paginator = paginatorsByScope.get(scope)
+    ?? paginatorsByScope.set(scope, createListPaginator()).get(scope);
+
+  try {
+    const page = Object.hasOwn(params, 'cursor')
+      ? paginator.page({ cursor: params.cursor })
+      : paginator.page({ items: toolsByScope.get(scope) ?? [] });
+    return { tools: page.items, ...(page.nextCursor && { nextCursor: page.nextCursor }) };
+  } catch (error) {
+    if (error instanceof PaginationCursorError || error instanceof TypeError) {
+      throw new McpError(ErrorCode.InvalidParams, 'Invalid pagination cursor');
+    }
+    throw error;
+  }
+});
+```
+
+Apply the same pattern to `resources/list`, `resources/templates/list`, and
+`prompts/list`. Call `clear()` and discard that scope's paginator when
+authorization is revoked. A raw client ID is only sufficient when the
+application guarantees that it identifies exactly one visibility set. The
+integration suite exercises real SDK clients, all four list methods, traversal,
+invalid-parameter mapping, scope isolation, and revocation.
 
 See [`examples/mcp-handler.mjs`](examples/mcp-handler.mjs) for a runnable example.
 

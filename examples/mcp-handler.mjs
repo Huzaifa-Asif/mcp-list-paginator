@@ -4,8 +4,9 @@ const paginator = createListPaginator({ pageSize: 2 });
 const catalog = [{ name: 'search' }, { name: 'fetch' }, { name: 'summarize' }];
 
 function listTools(request) {
-  const page = request.params?.cursor
-    ? paginator.page({ cursor: request.params.cursor })
+  const params = request.params ?? {};
+  const page = Object.hasOwn(params, 'cursor')
+    ? paginator.page({ cursor: params.cursor })
     : paginator.page({ items: catalog });
   return { tools: page.items, ...(page.nextCursor && { nextCursor: page.nextCursor }) };
 }

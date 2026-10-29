@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 - 2026-10-18
+
+- Treat a supplied empty cursor as invalid in the runnable and README examples instead of silently starting a new snapshot.
+- Document low-level TypeScript SDK integration, InvalidParams mapping, authorization-scope isolation, and revocation cleanup.
+- Add real SDK integration coverage for tools, resources, resource templates, and prompts list traversal.
+
 ## 1.0.1 - 2026-10-17
 
 - Isolate internal snapshot identities from generated cursor strings so token collisions cannot redirect an existing walk to a different list.
