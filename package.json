@@ -1,6 +1,6 @@
 {
   "name": "mcp-list-paginator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Create stable, bounded, opaque-cursor pages for MCP list handlers.",
   "keywords": ["mcp", "model-context-protocol", "pagination", "cursor", "tools", "resources", "prompts"],
   "license": "MIT",

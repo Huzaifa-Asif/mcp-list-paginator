@@ -43,11 +43,13 @@ Creates independent in-memory pagination state.
 - `maxSnapshots` — maximum concurrent list snapshots; default `100`, range 1–10,000. Starting another snapshot evicts the oldest when full.
 - `maxItems` — maximum retained items in one snapshot; default `100,000`, range 1–1,000,000. Larger inputs are rejected before retention.
 - `ttlMs` — snapshot lifetime; default five minutes, maximum 2,147,483,647 ms.
-- `now` and `createToken` — deterministic testing hooks. Production code should keep the secure defaults.
+- `now` and `createToken` — deterministic testing hooks. Production code should keep the secure defaults. `createToken` generates cursor strings only; internal snapshot identities are independent. Tokens must be strings of at least 16 characters. Live cursor collisions are retried up to ten attempts, then rejected.
 
 ### `paginator.page(request)`
 
 Start with `{ items }`; continue with `{ cursor }`. Supplying both or neither is rejected. Results contain `items` and, while another page exists, `nextCursor`.
+
+If initial cursor generation fails, no new snapshot is retained and existing unexpired snapshots are not evicted. Failed continuation cursor generation leaves the current cursor retryable.
 
 The input array is shallow-copied on the first call so later array insertions, removals, or reordering do not shift the active walk. Item objects themselves are not deep-cloned.
 
